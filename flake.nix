@@ -1,11 +1,15 @@
 {
   description = "retro";
-  inputs.nixpkgs.url = "github:nixos/nixpkgs";
   outputs = { self, nixpkgs }:
     {
       nixosConfigurations =
         let
-          simplesystem = { hostName, enableNvidia ? false, rootPool ? "zroot/root", bootDevice ? "/dev/nvme0n1p3", swapDevice ? "/dev/nvme0n1p2" }: {
+          pkgs = import nixpkgs { system = "x86_64-linux"; };
+          startX = pkgs.writeShellScriptBin "run" ''
+            echo exec $@ > ~/.xinitrc
+            startx
+          '';
+          simplesystem = { hostName, enableNvidia ? false, rootPool ? "zroot/root", bootDevice ? "/dev/nvme0n1p3", dwm ? false }: {
             system = "x86_64-linux";
             modules = [
               ({ pkgs, lib, modulesPath, ... }:
@@ -23,7 +27,6 @@
                   boot.initrd.availableKernelModules = [ "nvme" ];
                   fileSystems."/" = { device = rootPool; fsType = "zfs"; };
                   fileSystems."/boot" = { device = bootDevice; fsType = "vfat"; };
-                  swapDevices = [{ device = swapDevice; }];
                   nix = {
                     extraOptions = ''
                       experimental-features = nix-command flakes
@@ -34,19 +37,17 @@
                   nixpkgs.config.allowUnfree = true;
                   boot.loader.systemd-boot.enable = true;
                   boot.loader.efi.canTouchEfiVariables = true;
-                  boot.kernelPackages = pkgs.linuxPackages_5_17;
 
                   networking.hostId = "00000000";
                   networking.hostName = hostName;
-                  time.timeZone = "Australia/Melbourne";
+                  time.timeZone = "Europe/Kiev";
 
-                  i18n.defaultLocale = "en_AU.UTF-8";
-                  services.xserver.displayManager.autoLogin.enable = true;
+                  i18n.defaultLocale = "cp866";
+                  services.xserver.displayManager.startx.enable = !dwm;
                   services.xserver.displayManager.autoLogin.user = "retro";
                   services.xserver.enable = true;
                   services.xserver.videoDrivers = [ "modesetting" ];
-
-                  services.xserver.windowManager.dwm.enable = true;
+                  services.xserver.windowManager.dwm.enable = dwm;
 
                   environment.systemPackages = with pkgs; [
                     dmenu
@@ -55,20 +56,23 @@
                     wineWowPackages.full
                     far2l
                     mc
+                    firefox
+                    startX
                   ];
                   users.users.retro = {
                     isNormalUser = true;
                     password = "jnlehfrjd";
-                    extraGroups = [ "wheel" "docker" "vboxusers" ];
+                    extraGroups = [ "wheel" ];
                   };
                   networking.firewall.enable = false;
-                  system.stateVersion = "21.11"; # Did you read the comment?
+                  system.stateVersion = "22.05";
                 })
             ];
           };
         in
         {
-          retro = nixpkgs.lib.nixosSystem (simplesystem { hostName = "retro"; });
+          retro1 = nixpkgs.lib.nixosSystem (simplesystem { hostName = "retro1"; });
+          retro2 = nixpkgs.lib.nixosSystem (simplesystem { hostName = "retro2"; dwm = true; });
         };
     };
 }
